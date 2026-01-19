@@ -328,82 +328,117 @@ OAuth 2.1 is the modernized version of OAuth 2.0 that consolidates security best
 
 #### The OAuth 2.0 Dance - Sequence Diagram
 
+The following diagram shows the complete OAuth 2.0 Authorization Code Flow with PKCE, including Google OIDC integration, token refresh, and logout:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser
+    participant WebApp as HAI Intel Web App
+    participant Keycloak as Keycloak Auth Server
+    participant Google as Google OIDC (Optional)
+
+    Note over User,Google: OAuth 2.0 Authorization Code Flow with PKCE
+
+    User->>Browser: 1. Click "Login"
+    Browser->>WebApp: GET /login
+
+    Note over WebApp: Generate PKCE values:<br/>code_verifier = random()<br/>code_challenge = SHA256(verifier)
+
+    WebApp->>Browser: 2. Redirect to Keycloak
+    Note right of WebApp: Parameters:<br/>- client_id<br/>- redirect_uri<br/>- code_challenge<br/>- scope<br/>- state (CSRF)
+
+    Browser->>Keycloak: GET /auth?client_id=...&code_challenge=...
+
+    Keycloak->>Browser: Show login page
+    Note over Keycloak: Login Options:<br/>- Email/Password<br/>- Google OIDC<br/>- SCM Federation
+
+    User->>Browser: 3. Select "Sign in with Google"
+    Browser->>Keycloak: User choice: Google
+
+    Keycloak->>Google: Redirect to Google OAuth
+    Google->>User: Google login page
+    User->>Google: Enter credentials
+    Google->>Google: Validate credentials
+
+    Google->>Keycloak: 4. Redirect with Google token
+    Keycloak->>Keycloak: Exchange Google token<br/>Create user session<br/>Generate authorization code
+
+    Keycloak->>Browser: 5. Redirect to callback
+    Note right of Keycloak: GET /callback?<br/>code=ABC123&<br/>state=xyz
+
+    Browser->>WebApp: GET /callback?code=ABC123&state=xyz
+
+    Note over WebApp: Verify state parameter<br/>(CSRF protection)
+
+    WebApp->>Keycloak: 6. POST /token<br/>Exchange code for tokens
+    Note right of WebApp: Body:<br/>- grant_type=authorization_code<br/>- code=ABC123<br/>- code_verifier (PKCE proof)<br/>- client_id + client_secret<br/>- redirect_uri
+
+    Note over Keycloak: Validate:<br/>- Code not expired<br/>- Code not reused<br/>- PKCE matches<br/>- Client credentials valid
+
+    Keycloak->>WebApp: 7. Return tokens (JSON)
+    Note right of Keycloak: {<br/>"access_token": "eyJhbG...",<br/>"refresh_token": "eyJhbG...",<br/>"id_token": "eyJhbG...",<br/>"token_type": "Bearer",<br/>"expires_in": 300<br/>}
+
+    WebApp->>Browser: Store tokens securely
+    Note over Browser: sessionStorage or memory<br/>Never localStorage!
+
+    Browser->>User: Redirect to dashboard
+
+    Note over User,Google: User is now authenticated ✅
+
+    rect rgb(200, 220, 250)
+        Note over User,Google: Using Access Token (Authorized Requests)
+
+        User->>Browser: 8. Query documents
+        Browser->>WebApp: POST /api/query
+        Note right of Browser: Authorization:<br/>Bearer eyJhbG...
+
+        WebApp->>WebApp: Validate JWT:<br/>- Signature valid?<br/>- Not expired?<br/>- Issued by Keycloak?
+
+        WebApp->>WebApp: Apply Intelligence Governance:<br/>- Tenant filter<br/>- Classification policy<br/>- Lifecycle status
+
+        WebApp->>Browser: Return authorized results
+        Browser->>User: Display results
+    end
+
+    rect rgb(255, 240, 200)
+        Note over User,Google: Token Refresh (After 5 minutes)
+
+        Browser->>Browser: Access token expired
+        Browser->>WebApp: POST /token<br/>(refresh grant)
+        Note right of Browser: Body:<br/>grant_type=refresh_token<br/>refresh_token=eyJhbG...
+
+        WebApp->>Keycloak: POST /token
+
+        Keycloak->>Keycloak: Validate refresh token<br/>Generate new tokens<br/>Rotate refresh token (OAuth 2.1)
+
+        Keycloak->>WebApp: New tokens
+        WebApp->>Browser: Update stored tokens
+        Note over Browser: Old refresh token<br/>now INVALID
+    end
+
+    rect rgb(255, 200, 200)
+        Note over User,Google: Logout Flow
+
+        User->>Browser: 9. Click "Logout"
+        Browser->>WebApp: GET /logout
+
+        WebApp->>Browser: Clear tokens from storage
+
+        Browser->>Keycloak: GET /logout?<br/>id_token_hint=...&<br/>post_logout_redirect_uri=...
+
+        Keycloak->>Keycloak: Revoke tokens<br/>End session<br/>Clear cookies
+
+        Keycloak->>Browser: Redirect to app homepage
+        Browser->>User: Logged out ✅
+    end
 ```
-┌─────────────┐                                    ┌──────────────┐
-│   Browser   │                                    │   Keycloak   │
-│   (User)    │                                    │ (Auth Server)│
-└──────┬──────┘                                    └──────┬───────┘
-       │                                                  │
-       │ 1. User clicks "Login"                          │
-       ├────────────────────────────────────────────────>│
-       │    GET /login                                   │
-       │                                                 │
-       │ 2. Generate PKCE challenge & redirect           │
-       │    code_verifier = random_string()              │
-       │    code_challenge = SHA256(code_verifier)       │
-       │<────────────────────────────────────────────────┤
-       │    302 Redirect to:                             │
-       │    /auth?client_id=haiintel-web                 │
-       │         &redirect_uri=http://localhost:8000     │
-       │         &code_challenge=xyz123                  │
-       │         &code_challenge_method=S256             │
-       │         &scope=openid email profile             │
-       │                                                 │
-       │ 3. User enters credentials                      │
-       ├────────────────────────────────────────────────>│
-       │    POST /auth                                   │
-       │    username=testuser                            │
-       │    password=testpassword                        │
-       │                                                 │
-       │ 4. Keycloak validates & returns auth code       │
-       │<────────────────────────────────────────────────┤
-       │    302 Redirect to:                             │
-       │    /callback?code=ABC123&state=xyz              │
-       │                                                 │
-       │ 5. Exchange authorization code for tokens       │
-       ├────────────────────────────────────────────────>│
-       │    POST /token                                  │
-       │    code=ABC123                                  │
-       │    code_verifier=original_random_string         │
-       │    client_id=haiintel-web                       │
-       │    client_secret=4sOG9ge1qaQkXvJyg4Z1mE8yWBPSzddL│
-       │    redirect_uri=http://localhost:8000/callback  │
-       │                                                 │
-       │ 6. Keycloak validates PKCE & returns tokens     │
-       │<────────────────────────────────────────────────┤
-       │    200 OK                                       │
-       │    {                                            │
-       │      "access_token": "eyJhbGc...",              │
-       │      "id_token": "eyJhbGc...",                  │
-       │      "refresh_token": "eyJhbGc...",             │
-       │      "token_type": "Bearer",                    │
-       │      "expires_in": 300                          │
-       │    }                                            │
-       │                                                 │
-       │ 7. Store tokens in session & redirect to app   │
-       │<────────────────────────────────────────────────┤
-       │    302 Redirect to /                            │
-       │                                                 │
-       │ 8. Access protected resources with token        │
-       ├────────────────────────────────────────────────>│
-       │    GET /api/userinfo                            │
-       │    Authorization: Bearer eyJhbGc...             │
-       │                                                 │
-       │ 9. Keycloak validates token & returns data      │
-       │<────────────────────────────────────────────────┤
-       │    200 OK                                       │
-       │    { "sub": "123", "email": "test@..." }        │
-       │                                                 │
-       │ 10. User clicks "Logout"                        │
-       ├────────────────────────────────────────────────>│
-       │    GET /logout?id_token_hint=eyJhbGc...         │
-       │         &post_logout_redirect_uri=http://...    │
-       │                                                 │
-       │ 11. Keycloak ends session & redirects           │
-       │<────────────────────────────────────────────────┤
-       │    302 Redirect to http://localhost:8000        │
-       │                                                 │
-```
+
+> **💡 Tip:** The diagram above shows the complete flow including:
+>
+> - **Blue section**: Using access tokens for API requests with Intelligence Governance
+> - **Yellow section**: Token refresh flow with OAuth 2.1 refresh token rotation
+> - **Red section**: Proper logout with session termination
 
 #### Security Features Implemented
 
