@@ -6,15 +6,18 @@
 
 ## 📋 Table of Contents
 
-- [What This Infrastructure Provides](#what-this-infrastructure-provides)
-- [Architecture Overview](#architecture-overview)
-- [Prerequisites](#prerequisites)
-- [Local Development](#local-development)
-- [Azure Deployment](#azure-deployment)
-- [Operations & Maintenance](#operations--maintenance)
-- [Monitoring & Observability](#monitoring--observability)
-- [Troubleshooting](#troubleshooting)
-- [Service URLs & Credentials](#service-urls--credentials)
+- [🎯 What This Infrastructure Provides](#-what-this-infrastructure-provides)
+- [🏗️ Architecture Overview](#️-architecture-overview)
+- [📦 Prerequisites](#-prerequisites)
+- [🚀 Local Development](#-local-development)
+  - [Testing Keycloak Integration](#testing-keycloak-integration)
+  - [OAuth 2.0 & OAuth 2.1 Implementation](#oauth-20--oauth-21-implementation)
+- [☁️ Azure Deployment](#️-azure-deployment)
+- [📊 Monitoring & Observability](#-monitoring--observability)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [🔗 Service URLs & Credentials](#-service-urls--credentials)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
 ---
 
