@@ -37,11 +37,51 @@ async function initializeClient() {
   console.log('OpenID Client initialized');
 }
 
+// Middleware to automatically refresh expired tokens
+async function ensureValidToken(req, res, next) {
+  // Skip if user is not logged in
+  if (!req.session.refresh_token) {
+    return next();
+  }
+
+  // Check if token is expired or about to expire (within 30 seconds)
+  const now = Date.now();
+  const expiresAt = req.session.token_expires_at || 0;
+  const timeUntilExpiry = expiresAt - now;
+
+  if (timeUntilExpiry < 30000) { // Less than 30 seconds until expiry
+    console.log(`🔄 Access token expiring soon (${Math.floor(timeUntilExpiry / 1000)}s). Refreshing...`);
+
+    try {
+      // Use openid-client's refresh method
+      const newTokenSet = await client.refresh(req.session.refresh_token);
+
+      // Update session with new tokens
+      req.session.access_token = newTokenSet.access_token;
+      req.session.refresh_token = newTokenSet.refresh_token; // OAuth 2.1 rotation
+      req.session.id_token = newTokenSet.id_token;
+      req.session.userinfo = newTokenSet.claims();
+      req.session.token_expires_at = Date.now() + (newTokenSet.expires_in * 1000);
+
+      console.log(`✅ Token refreshed successfully. New expiry in ${newTokenSet.expires_in} seconds`);
+    } catch (err) {
+      console.error('❌ Token refresh failed:', err.message);
+
+      // Clear session and redirect to login
+      req.session.destroy();
+      return res.redirect('/login');
+    }
+  }
+
+  next();
+}
+
 // Routes
-app.get('/', (req, res) => {
+app.get('/', ensureValidToken, (req, res) => {
   if (req.session.userinfo) {
     const accessToken = req.session.access_token || '';
     const idToken = req.session.id_token || '';
+    const expiresIn = req.session.token_expires_at ? Math.floor((req.session.token_expires_at - Date.now()) / 1000) : 0;
 
     res.send(`
       <!DOCTYPE html>
@@ -63,10 +103,21 @@ app.get('/', (req, res) => {
           .btn-danger:hover { background: #c82333; }
           .highlight { background: #fff3cd; padding: 2px 5px; border-radius: 3px; }
           .curl-example { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 12px; }
+          .token-status { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 4px; margin: 20px 0; }
+          .token-status.warning { background: #fff3cd; border-color: #ffeaa7; color: #856404; }
+          .token-status.expired { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+          .auto-refresh-badge { background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         </style>
       </head>
       <body>
         <h1>✅ Successfully Authenticated with HAI Intel Keycloak!</h1>
+
+        <div class="token-status ${expiresIn < 60 ? 'warning' : ''}">
+          <strong>🔐 Token Status:</strong>
+          Access token expires in <strong id="expires-in">${expiresIn}</strong> seconds
+          <span class="auto-refresh-badge">AUTO-REFRESH ENABLED</span>
+          <br><small>Token will automatically refresh when it has less than 30 seconds remaining</small>
+        </div>
 
         <div class="user-info">
           <h2>User Information (from ID Token Claims)</h2>
@@ -102,11 +153,72 @@ curl -H "Authorization: Bearer ${accessToken.substring(0, 50)}..." \\
         <div>
           <a href="/logout" class="btn btn-danger">Logout</a>
           <a href="/account" class="btn">Manage Account</a>
+          <button onclick="testApiCall()" class="btn">🧪 Test API Call (Auto-Refresh)</button>
           <button onclick="window.open('https://jwt.io/#debugger-io?token=' + encodeURIComponent(document.getElementById('access-token').textContent.trim()), '_blank')" class="btn">🔍 Decode Access Token</button>
           <button onclick="window.open('https://jwt.io/#debugger-io?token=' + encodeURIComponent(document.getElementById('id-token').textContent.trim()), '_blank')" class="btn">🔍 Decode ID Token</button>
         </div>
 
+        <div id="api-result" style="display: none; margin-top: 20px;">
+          <div class="user-info">
+            <h2>API Response</h2>
+            <pre id="api-response"></pre>
+          </div>
+        </div>
+
         <script>
+          // Token expiry countdown
+          let expiresIn = ${expiresIn};
+
+          function updateCountdown() {
+            const element = document.getElementById('expires-in');
+            const statusDiv = element.closest('.token-status');
+
+            if (expiresIn > 0) {
+              element.textContent = expiresIn;
+
+              // Update styling based on time remaining
+              if (expiresIn < 30) {
+                statusDiv.className = 'token-status expired';
+                statusDiv.querySelector('strong').textContent = '🔄 Token Status (REFRESHING):';
+              } else if (expiresIn < 60) {
+                statusDiv.className = 'token-status warning';
+              } else {
+                statusDiv.className = 'token-status';
+              }
+
+              expiresIn--;
+            } else {
+              // Token expired, reload page to trigger refresh
+              console.log('Token expired, reloading page to get new token...');
+              window.location.reload();
+            }
+          }
+
+          // Update countdown every second
+          setInterval(updateCountdown, 1000);
+
+          // Test API call with automatic token refresh
+          async function testApiCall() {
+            const resultDiv = document.getElementById('api-result');
+            const responseEl = document.getElementById('api-response');
+
+            resultDiv.style.display = 'block';
+            responseEl.textContent = 'Loading...';
+
+            try {
+              const response = await fetch('/api/userinfo');
+              const data = await response.json();
+
+              responseEl.textContent = JSON.stringify(data, null, 2);
+
+              if (data.success) {
+                console.log('✅ API call successful. Token expires in:', data.token_expires_in, 'seconds');
+              }
+            } catch (err) {
+              responseEl.textContent = 'Error: ' + err.message;
+            }
+          }
+
           function copyToken(elementId) {
             const element = document.getElementById(elementId);
             const text = element.textContent.trim();
@@ -186,9 +298,14 @@ app.get('/callback', async (req, res) => {
       code_verifier: req.session.code_verifier,
     });
 
+    // Store all tokens including refresh token
     req.session.access_token = tokenSet.access_token;
+    req.session.refresh_token = tokenSet.refresh_token;
     req.session.id_token = tokenSet.id_token;
     req.session.userinfo = tokenSet.claims();
+    req.session.token_expires_at = Date.now() + (tokenSet.expires_in * 1000);
+
+    console.log(`✅ Tokens stored. Access token expires in ${tokenSet.expires_in} seconds`);
 
     res.redirect('/');
   } catch (err) {
@@ -211,6 +328,28 @@ app.get('/logout', async (req, res) => {
 
 app.get('/account', (req, res) => {
   res.redirect(`${KEYCLOAK_URL}/realms/${REALM}/account`);
+});
+
+// API endpoint to demonstrate token usage with auto-refresh
+app.get('/api/userinfo', ensureValidToken, async (req, res) => {
+  if (!req.session.access_token) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    // Call Keycloak's userinfo endpoint with the access token
+    const userinfo = await client.userinfo(req.session.access_token);
+
+    res.json({
+      success: true,
+      userinfo: userinfo,
+      token_expires_in: Math.floor((req.session.token_expires_at - Date.now()) / 1000),
+      message: 'Token was automatically refreshed if needed'
+    });
+  } catch (err) {
+    console.error('Userinfo error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Start server

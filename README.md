@@ -386,7 +386,7 @@ sequenceDiagram
 
     Note over User,Google: User is now authenticated ✅
 
-    rect rgb(200, 220, 250)
+    rect rgba(59, 130, 246, 0.15)
         Note over User,Google: Using Access Token (Authorized Requests)
 
         User->>Browser: 8. Query documents
@@ -401,7 +401,7 @@ sequenceDiagram
         Browser->>User: Display results
     end
 
-    rect rgb(255, 240, 200)
+    rect rgba(245, 158, 11, 0.15)
         Note over User,Google: Token Refresh (After 5 minutes)
 
         Browser->>Browser: Access token expired
@@ -417,7 +417,7 @@ sequenceDiagram
         Note over Browser: Old refresh token<br/>now INVALID
     end
 
-    rect rgb(255, 200, 200)
+    rect rgba(239, 68, 68, 0.15)
         Note over User,Google: Logout Flow
 
         User->>Browser: 9. Click "Logout"
@@ -436,9 +436,9 @@ sequenceDiagram
 
 > **💡 Tip:** The diagram above shows the complete flow including:
 >
-> - **Blue section**: Using access tokens for API requests with Intelligence Governance
-> - **Yellow section**: Token refresh flow with OAuth 2.1 refresh token rotation
-> - **Red section**: Proper logout with session termination
+> - **Blue highlighted section**: Using access tokens for API requests with Intelligence Governance
+> - **Orange highlighted section**: Token refresh flow with OAuth 2.1 refresh token rotation
+> - **Red highlighted section**: Proper logout with session termination
 
 #### Security Features Implemented
 
@@ -525,6 +525,24 @@ The test app is pre-configured to work with local Keycloak:
 - **Client Secret:** 4sOG9ge1qaQkXvJyg4Z1mE8yWBPSzddL
 - **Redirect URI:** http://localhost:8000/callback
 - **Port:** 8000
+
+**Automatic Token Refresh:**
+
+The test app implements **automatic token refresh** as shown in the OAuth 2.0 sequence diagram:
+
+- ✅ **Auto-refresh enabled** - Tokens automatically refresh when they have less than 30 seconds remaining
+- ✅ **OAuth 2.1 compliant** - Implements refresh token rotation (old refresh token invalidated)
+- ✅ **Visual countdown** - Real-time display of token expiry time
+- ✅ **Seamless UX** - Users never experience session interruption
+- ✅ **Test API endpoint** - `/api/userinfo` demonstrates token usage with auto-refresh
+
+**How it works:**
+
+1. Access token expires in 5 minutes (configurable in Keycloak)
+2. Middleware checks token expiry before each request
+3. If token expires in < 30 seconds, automatically calls Keycloak's `/token` endpoint
+4. New tokens replace old ones in session (refresh token rotated per OAuth 2.1)
+5. Request proceeds with fresh token
 
 ---
 
