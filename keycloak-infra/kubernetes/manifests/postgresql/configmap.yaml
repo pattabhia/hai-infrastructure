@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgresql-init
+  namespace: keycloak
+data:
+  01-init.sql: |
+    -- Initialize Keycloak database
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;
+

@@ -1,0 +1,8 @@
+# Backend Configuration for Production Environment
+# Copy this file to backend.tfvars and update with your values from bootstrap output
+
+resource_group_name  = "rg-haiintel-tfstate"
+storage_account_name = "sthaiinteltfstateXXXXXX" # Replace with actual storage account name
+container_name       = "tfstate"
+key                  = "prod/keycloak.tfstate"
+

@@ -1,0 +1,184 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "event_type"},
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "LOGIN": {"color": "green", "index": 0, "text": "✅ LOGIN"},
+                      "LOGIN_ERROR": {"color": "red", "index": 1, "text": "❌ LOGIN_ERROR"},
+                      "LOGOUT": {"color": "blue", "index": 2, "text": "🚪 LOGOUT"}
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "login_time"},
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "username"},
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "login_time"
+          }
+        ]
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  TO_TIMESTAMP(e.event_time / 1000) as login_time,\n  COALESCE(u.username, 'Unknown') as username,\n  COALESCE(u.email, 'N/A') as email,\n  e.type as event_type,\n  COALESCE(e.ip_address, 'N/A') as ip_address,\n  COALESCE(e.client_id, 'N/A') as client_id,\n  CASE \n    WHEN e.error IS NOT NULL THEN e.error \n    WHEN e.type = 'LOGIN' THEN 'Success'\n    WHEN e.type = 'LOGOUT' THEN 'Success'\n    ELSE 'N/A'\n  END as status\nFROM event_entity e\nLEFT JOIN user_entity u ON e.user_id = u.id\nWHERE e.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')\n  AND e.type IN ('LOGIN', 'LOGIN_ERROR', 'LOGOUT')\n  AND e.event_time > EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000\nORDER BY e.event_time DESC\nLIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Login Events (Last 7 Days)",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 20},
+      "id": 2,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "last_login"
+          }
+        ]
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  u.username,\n  u.email,\n  u.enabled,\n  TO_TIMESTAMP(u.created_timestamp / 1000) as created_at,\n  TO_TIMESTAMP(MAX(e.event_time) / 1000) as last_login,\n  COUNT(CASE WHEN e.type = 'LOGIN' THEN 1 END) as login_count,\n  COUNT(CASE WHEN e.type = 'LOGIN_ERROR' THEN 1 END) as failed_login_count\nFROM user_entity u\nLEFT JOIN event_entity e ON u.id = e.user_id AND e.type IN ('LOGIN', 'LOGIN_ERROR')\nWHERE u.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')\nGROUP BY u.id, u.username, u.email, u.enabled, u.created_timestamp\nORDER BY last_login DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "User Login Summary",
+      "type": "table"
+    },
+    {
+      "datasource": "PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 20},
+      "id": 3,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "failed_attempts"
+          }
+        ]
+      },
+      "pluginVersion": "10.2.2",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT \n  COALESCE(u.username, 'Unknown') as username,\n  COALESCE(u.email, 'N/A') as email,\n  e.ip_address,\n  COUNT(*) as failed_attempts,\n  MAX(TO_TIMESTAMP(e.event_time / 1000)) as last_failed_attempt\nFROM event_entity e\nLEFT JOIN user_entity u ON e.user_id = u.id\nWHERE e.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')\n  AND e.type = 'LOGIN_ERROR'\n  AND e.event_time > EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000\nGROUP BY u.username, u.email, e.ip_address\nORDER BY failed_attempts DESC\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "Failed Login Attempts (Last 7 Days)",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["keycloak", "login", "security", "audit"],
+  "templating": {"list": []},
+  "time": {"from": "now-7d", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Keycloak Login History",
+  "uid": "keycloak-login-history",
+  "version": 1
+}
+

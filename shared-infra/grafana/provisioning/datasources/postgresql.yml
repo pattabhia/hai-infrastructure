@@ -1,0 +1,17 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: haiintel-keycloak-postgres:5432
+    database: keycloak
+    user: keycloak
+    secureJsonData:
+      password: keycloak_password
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false
+    editable: true
+

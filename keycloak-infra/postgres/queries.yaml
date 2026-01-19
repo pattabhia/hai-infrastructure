@@ -1,0 +1,211 @@
+# Custom PostgreSQL queries for Keycloak metrics
+# These queries expose Keycloak-specific metrics to Prometheus
+
+# Total users count
+keycloak_users_total:
+  query: "SELECT COUNT(*) as count FROM user_entity WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')"
+  master: true
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "Total number of users in haiintel realm"
+
+# Users by email domain
+keycloak_users_by_domain:
+  query: |
+    SELECT 
+      CASE 
+        WHEN email LIKE '%@haiintel.com' THEN 'haiintel.com'
+        WHEN email LIKE '%@gmail.com' THEN 'gmail.com'
+        ELSE 'other'
+      END as domain,
+      COUNT(*) as count
+    FROM user_entity 
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+    GROUP BY domain
+  master: true
+  metrics:
+    - domain:
+        usage: "LABEL"
+        description: "Email domain"
+    - count:
+        usage: "GAUGE"
+        description: "Number of users by email domain"
+
+# Users by role
+keycloak_users_by_role:
+  query: |
+    SELECT 
+      r.name as role_name,
+      COUNT(DISTINCT urm.user_id) as count
+    FROM keycloak_role r
+    LEFT JOIN user_role_mapping urm ON r.id = urm.role_id
+    WHERE r.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+      AND r.name IN ('user', 'admin', 'developer')
+    GROUP BY r.name
+  master: true
+  metrics:
+    - role_name:
+        usage: "LABEL"
+        description: "Role name"
+    - count:
+        usage: "GAUGE"
+        description: "Number of users with this role"
+
+# Users by group
+keycloak_users_by_group:
+  query: |
+    SELECT 
+      g.name as group_name,
+      COUNT(DISTINCT ugm.user_id) as count
+    FROM keycloak_group g
+    LEFT JOIN user_group_membership ugm ON g.id = ugm.group_id
+    WHERE g.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+    GROUP BY g.name
+  master: true
+  metrics:
+    - group_name:
+        usage: "LABEL"
+        description: "Group name"
+    - count:
+        usage: "GAUGE"
+        description: "Number of users in this group"
+
+# Active sessions count
+keycloak_active_sessions:
+  query: |
+    SELECT COUNT(*) as count 
+    FROM user_session 
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+  master: true
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "Number of active user sessions"
+
+# Login events in last 24 hours
+keycloak_login_events_24h:
+  query: |
+    SELECT
+      type,
+      COUNT(*) as count
+    FROM event_entity
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+      AND event_time > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours') * 1000
+      AND type IN ('LOGIN', 'LOGIN_ERROR', 'LOGOUT')
+    GROUP BY type
+  master: true
+  metrics:
+    - type:
+        usage: "LABEL"
+        description: "Event type (LOGIN, LOGIN_ERROR, LOGOUT)"
+    - count:
+        usage: "COUNTER"
+        description: "Number of events in last 24 hours"
+
+# Failed login attempts in last 24 hours
+keycloak_failed_logins_24h:
+  query: |
+    SELECT COUNT(*) as count
+    FROM event_entity
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+      AND event_time > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours') * 1000
+      AND type = 'LOGIN_ERROR'
+  master: true
+  metrics:
+    - count:
+        usage: "COUNTER"
+        description: "Number of failed login attempts in last 24 hours"
+
+# Users created in last 7 days
+keycloak_new_users_7d:
+  query: |
+    SELECT COUNT(*) as count
+    FROM user_entity
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+      AND created_timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000
+  master: true
+  metrics:
+    - count:
+        usage: "GAUGE"
+        description: "Number of users created in last 7 days"
+
+# Identity provider usage
+keycloak_users_by_identity_provider:
+  query: |
+    SELECT 
+      COALESCE(fl.identity_provider, 'local') as provider,
+      COUNT(DISTINCT u.id) as count
+    FROM user_entity u
+    LEFT JOIN federated_identity fl ON u.id = fl.user_id
+    WHERE u.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+    GROUP BY provider
+  master: true
+  metrics:
+    - provider:
+        usage: "LABEL"
+        description: "Identity provider (github, google, local)"
+    - count:
+        usage: "GAUGE"
+        description: "Number of users by identity provider"
+
+# Enabled vs disabled users
+keycloak_users_by_status:
+  query: |
+    SELECT
+      CASE WHEN enabled = true THEN 'enabled' ELSE 'disabled' END as status,
+      COUNT(*) as count
+    FROM user_entity
+    WHERE realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+    GROUP BY enabled
+  master: true
+  metrics:
+    - status:
+        usage: "LABEL"
+        description: "User status (enabled/disabled)"
+    - count:
+        usage: "GAUGE"
+        description: "Number of users by status"
+
+# Recent login events with user details
+keycloak_recent_login_events:
+  query: |
+    SELECT
+      u.username,
+      u.email,
+      e.type as event_type,
+      e.ip_address,
+      e.client_id,
+      TO_TIMESTAMP(e.event_time / 1000) as login_time,
+      CASE WHEN e.error IS NOT NULL THEN e.error ELSE 'SUCCESS' END as status
+    FROM event_entity e
+    LEFT JOIN user_entity u ON e.user_id = u.id
+    WHERE e.realm_id = (SELECT id FROM realm WHERE name = 'haiintel')
+      AND e.type IN ('LOGIN', 'LOGIN_ERROR', 'LOGOUT')
+      AND e.event_time > EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') * 1000
+    ORDER BY e.event_time DESC
+    LIMIT 100
+  master: true
+  metrics:
+    - username:
+        usage: "LABEL"
+        description: "Username"
+    - email:
+        usage: "LABEL"
+        description: "User email"
+    - event_type:
+        usage: "LABEL"
+        description: "Event type"
+    - ip_address:
+        usage: "LABEL"
+        description: "IP address"
+    - client_id:
+        usage: "LABEL"
+        description: "Client ID"
+    - login_time:
+        usage: "LABEL"
+        description: "Login timestamp"
+    - status:
+        usage: "LABEL"
+        description: "Login status"
+

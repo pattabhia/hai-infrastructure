@@ -1,0 +1,61 @@
+groups:
+  - name: keycloak_alerts
+    interval: 30s
+    rules:
+      - alert: KeycloakDown
+        expr: up{job="keycloak"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Keycloak is down"
+          description: "Keycloak instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: KeycloakHighMemoryUsage
+        expr: process_resident_memory_bytes{job="keycloak"} > 1073741824
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Keycloak high memory usage"
+          description: "Keycloak instance {{ $labels.instance }} is using more than 1GB of memory."
+
+      - alert: KeycloakHighErrorRate
+        expr: rate(keycloak_failed_login_attempts[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High login failure rate"
+          description: "Keycloak instance {{ $labels.instance }} has high login failure rate."
+
+  - name: postgres_alerts
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL instance {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL high connection count"
+          description: "PostgreSQL instance {{ $labels.instance }} has more than 80 active connections."
+
+      - alert: PostgresSlowQueries
+        expr: rate(pg_stat_database_tup_fetched[5m]) < 100
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "PostgreSQL slow query performance"
+          description: "PostgreSQL instance {{ $labels.instance }} may have slow queries."
+

@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: keycloak
+
+resources:
+  # Namespace
+  - namespace.yaml
+  
+  # PostgreSQL
+  - postgresql/configmap.yaml
+  - postgresql/secret.yaml
+  - postgresql/service.yaml
+  - postgresql/statefulset.yaml
+  
+  # Keycloak
+  - keycloak/secret.yaml
+  - keycloak/external-url-configmap.yaml
+  - keycloak/init-external-url-job.yaml
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+  - keycloak/hpa.yaml
+  
+  # Monitoring
+  - monitoring/prometheus-rbac.yaml
+  - monitoring/prometheus-configmap.yaml
+  - monitoring/prometheus-pvc.yaml
+  - monitoring/prometheus-deployment.yaml
+  - monitoring/prometheus-service.yaml
+  - monitoring/grafana-secret.yaml
+  - monitoring/grafana-configmap.yaml
+  - monitoring/grafana-pvc.yaml
+  - monitoring/grafana-deployment.yaml
+  - monitoring/grafana-service.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: keycloak-stack
+

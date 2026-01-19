@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-url-updater
+  namespace: keycloak
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: external-url-updater
+  namespace: keycloak
+rules:
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: external-url-updater
+  namespace: keycloak
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: external-url-updater
+subjects:
+- kind: ServiceAccount
+  name: external-url-updater
+  namespace: keycloak
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-external-url
+  namespace: keycloak
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: external-url-updater
+      restartPolicy: OnFailure
+      containers:
+      - name: update-configmap
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          echo "Waiting for LoadBalancer IP to be assigned..."
+          
+          # Wait up to 5 minutes for the external IP
+          for i in {1..60}; do
+            EXTERNAL_IP=$(kubectl get svc keycloak -n keycloak -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            
+            if [ -n "$EXTERNAL_IP" ] && [ "$EXTERNAL_IP" != "null" ]; then
+              echo "External IP found: $EXTERNAL_IP"
+              break
+            fi
+            
+            echo "Waiting for external IP... (attempt $i/60)"
+            sleep 5
+          done
+          
+          if [ -z "$EXTERNAL_IP" ] || [ "$EXTERNAL_IP" == "null" ]; then
+            echo "ERROR: Failed to get external IP after 5 minutes"
+            exit 1
+          fi
+          
+          # Update the ConfigMap
+          echo "Updating ConfigMap with external URL: http://$EXTERNAL_IP"
+          kubectl patch configmap keycloak-external-url -n keycloak \
+            --type merge \
+            -p "{\"data\":{\"KEYCLOAK_EXTERNAL_URL\":\"http://$EXTERNAL_IP\"}}"
+          
+          echo "ConfigMap updated successfully!"
+          echo "You may need to restart the Keycloak deployment for changes to take effect:"
+          echo "  kubectl rollout restart deployment/keycloak -n keycloak"
+

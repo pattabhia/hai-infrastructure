@@ -1,0 +1,99 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Terraform backend config (contains sensitive info)
+backend.tfvars
+!backend.tfvars.example
+
+# Bootstrap outputs (contains sensitive info)
+bootstrap-outputs.json
+
+# Local .terraform directories
+**/.terraform/*
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Docker
+docker/.env
+docker/keycloak/themes/*
+!docker/keycloak/themes/.gitkeep
+docker/keycloak/providers/*
+!docker/keycloak/providers/.gitkeep
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+secrets/
+credentials/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules (if using any JS tools)
+node_modules/
+
+# Python (if using any Python tools)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Helm
+charts/*.tgz
+
+# Output files
+outputs.json
+terraform-outputs-*.json
+node_modules/
+package-lock.json
+yarn.lock
+dist/
+build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.next/
+.gitkeep
