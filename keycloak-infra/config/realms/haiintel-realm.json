@@ -1,0 +1,146 @@
+{
+  "realm": "haiintel",
+  "enabled": true,
+  "displayName": "HAI Intel",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>HAI Intel</span></div>",
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "defaultSignatureAlgorithm": "RS256",
+  "offlineSessionMaxLifespanEnabled": false,
+  "offlineSessionMaxLifespan": 5184000,
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "accessCodeLifespan": 60,
+  "accessCodeLifespanUserAction": 300,
+  "accessCodeLifespanLogin": 1800,
+  "actionTokenGeneratedByAdminLifespan": 43200,
+  "actionTokenGeneratedByUserLifespan": 300,
+  "identityProviders": [],
+  "identityProviderMappers": [],
+  "clients": [
+    {
+      "clientId": "haiintel-web",
+      "name": "HAI Intel Web Application",
+      "description": "Main web application client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "redirectUris": ["http://localhost:3000/*", "http://localhost:8000/*"],
+      "webOrigins": ["http://localhost:3000", "http://localhost:8000"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "consentRequired": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["email", "profile"],
+      "optionalClientScopes": ["offline_access"]
+    },
+    {
+      "clientId": "haiintel-api",
+      "name": "HAI Intel API",
+      "description": "Backend API client",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": true,
+      "fullScopeAllowed": false
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "profile",
+      "description": "OpenID Connect built-in scope: profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "email",
+      "description": "OpenID Connect built-in scope: email",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Standard user role"
+      },
+      {
+        "name": "admin",
+        "description": "Administrator role"
+      },
+      {
+        "name": "developer",
+        "description": "Developer role"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Users",
+      "path": "/Users"
+    },
+    {
+      "name": "Administrators",
+      "path": "/Administrators"
+    },
+    {
+      "name": "Developers",
+      "path": "/Developers"
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "email": "testuser@haiintel.local",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpassword",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"],
+      "groups": ["/Users"]
+    }
+  ]
+}

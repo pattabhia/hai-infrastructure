@@ -96,34 +96,24 @@ infrastructure/
 └── scripts/                   # Shared utility scripts
 ```
 
-### Component Architecture
+### Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│              HaiIntel Platform Infrastructure                │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │         Shared Monitoring (Platform-wide)          │    │
-│  ├────────────────────────────────────────────────────┤    │
-│  │  • Prometheus (scrapes all services)               │    │
-│  │  • Grafana (dashboards for all apps)               │    │
-│  └────────────────────────────────────────────────────┘    │
-│                          ▲                                   │
-│                          │ (metrics)                         │
-│         ┌────────────────┼────────────────┐                │
-│         │                                  │                │
-│  ┌──────▼──────────────────────────────────▼──────────┐   │
-│  │  Keycloak Infrastructure                           │   │
-│  ├────────────────────────────────────────────────────┤   │
-│  │  • Keycloak 23.0 (IAM)                             │   │
-│  │  • PostgreSQL 15 (Database)                        │   │
-│  │  • PostgreSQL Exporter (DB Metrics)                │   │
-│  │  • Terraform (Azure IaC)                           │   │
-│  │  • Kubernetes Manifests                            │   │
-│  └────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+The following diagram shows the complete infrastructure architecture:
+
+![HaiIntel Platform Infrastructure](keycloak-infra/docs/platform_infra.png)
+
+**Key Components:**
+
+- **Shared Monitoring (Platform-wide)**
+  - Prometheus - Scrapes metrics from all services
+  - Grafana - Unified dashboards for all applications
+
+- **Keycloak Infrastructure**
+  - Keycloak 23.0 - Identity and Access Management
+  - PostgreSQL 15 - Dedicated database for Keycloak
+  - PostgreSQL Exporter - Database metrics for monitoring
+  - Terraform - Infrastructure as Code for Azure deployment
+  - Kubernetes Manifests - Container orchestration configuration
 
 ---
 
@@ -296,6 +286,46 @@ The test app will be available at **http://localhost:8000**
 5. ✅ **User Info Retrieval** from ID token claims
 6. ✅ **Logout Flow** with redirect back to app
 7. ✅ **Session Management** with server-side storage
+
+**Authentication Flow Screenshots:**
+
+The following screenshots show the complete OAuth 2.0 authentication flow:
+
+**1. Keycloak Login Page**
+
+When you click "Login with Keycloak", you're redirected to the Keycloak login page:
+
+![Keycloak Login Page](keycloak-infra/docs/login-kc.png)
+
+**2. Identity Provider Selection (Optional)**
+
+If configured, users can choose to login with social identity providers (GitHub, Google):
+
+![Identity Provider Selection](keycloak-infra/docs/kc-idp.png)
+
+**3. Successful Authentication**
+
+After successful login, the test app displays user information and tokens:
+
+![Successful Authentication](keycloak-infra/docs/success-auth.png)
+
+**Keycloak Admin Console:**
+
+You can manage users, roles, and identity providers through the Keycloak admin console at http://localhost:8080/admin (admin/admin):
+
+**Users Management:**
+
+![Keycloak Users](keycloak-infra/docs/kc-users.png)
+
+**Roles Management:**
+
+![Keycloak Roles](keycloak-infra/docs/kc-roles.png)
+
+**Admin Home:**
+
+![Keycloak Home](keycloak-infra/docs/kc-home.png)
+
+---
 
 ### OAuth 2.0 & OAuth 2.1 Implementation
 
@@ -974,8 +1004,6 @@ kubelogin convert-kubeconfig -l azurecli
 **⚠️ Security Warning:** Change default passwords immediately in production environments.
 
 ---
-
-## 🤝 Contributing
 
 When adding new infrastructure components:
 
